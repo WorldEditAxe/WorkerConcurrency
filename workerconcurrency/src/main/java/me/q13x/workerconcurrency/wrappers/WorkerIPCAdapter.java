@@ -1,10 +1,13 @@
-package me.q13x.workerconcurrency;
+package me.q13x.workerconcurrency.wrappers;
 
 import java.util.ArrayList;
 
 import org.teavm.jso.dom.events.EventListener;
 import org.teavm.jso.dom.events.MessageEvent;
 import org.teavm.jso.typedarrays.ArrayBuffer;
+
+import me.q13x.workerconcurrency.platform.browser.js.ArrayBufferUtil;
+import me.q13x.workerconcurrency.platform.browser.js.Worker;
 
 public class WorkerIPCAdapter implements IPCAdapter {
     public Worker worker;

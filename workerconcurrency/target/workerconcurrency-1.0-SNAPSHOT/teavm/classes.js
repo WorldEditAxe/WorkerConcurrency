@@ -919,7 +919,7 @@ function jl_Object_getClass($this) {
     return jl_Class_getClass($this.constructor);
 }
 function jl_Object_toString($this) {
-    var var$1, var$2, var$3, var$4, var$5, var$6, var$7, var$8, var$9, var$10, var$11, var$12, var$13, var$14;
+    var var$1, var$2, var$3, var$4, var$5, var$6, var$7, var$8, var$9, var$10, var$11, var$12;
     var$1 = jl_Object_getClass($this);
     if (var$1.$name === null)
         var$1.$name = $rt_str(var$1.$platformClass.$meta.name);
@@ -968,58 +968,46 @@ function jl_Object_toString($this) {
         var$7 = 0;
         while (var$6 >= 0) {
             var$10 = var$7 + 1 | 0;
-            var$5 = var$4 >>> var$6 & 15;
-            var$9[var$7] = var$5 >= 16 ? 0 : var$5 < 10 ? (48 + var$5 | 0) & 65535 : ((97 + var$5 | 0) - 10 | 0) & 65535;
+            var$9[var$7] = jl_Character_forDigit(var$4 >>> var$6 & 15, 16);
             var$6 = var$6 - 4 | 0;
             var$7 = var$10;
         }
         var$3 = jl_String__init_(var$8);
     }
-    var$1 = new jl_StringBuilder;
-    var$1.$buffer = $rt_createCharArray(16);
+    var$1 = jl_StringBuilder__init_();
     var$11 = jl_StringBuilder_append(var$1, var$2);
     var$12 = var$11.$length;
-    var$13 = var$12 + 1 | 0;
-    var$5 = var$12 - var$12 | 0;
-    jl_StringBuilder_ensureCapacity(var$11, (var$12 + var$13 | 0) - var$12 | 0);
-    var$5 = var$5 - 1 | 0;
-    while (var$5 >= 0) {
-        var$8 = var$11.$buffer.data;
-        var$8[var$13 + var$5 | 0] = var$8[var$12 + var$5 | 0];
-        var$5 = var$5 + (-1) | 0;
-    }
-    var$11.$length = var$11.$length + (var$13 - var$12 | 0) | 0;
+    jl_AbstractStringBuilder_insertSpace(var$11, var$12, var$12 + 1 | 0);
     var$11.$buffer.data[var$12] = 64;
     jl_StringBuilder_append(var$11, var$3);
-    var$3 = new jl_String;
-    var$8 = var$1.$buffer;
-    var$12 = var$1.$length;
-    var$9 = $rt_createCharArray(var$12);
-    var$14 = var$9.data;
-    var$3.$characters = var$9;
-    var$13 = 0;
-    while (var$13 < var$12) {
-        var$14[var$13] = var$8.data[var$13 + 0 | 0];
-        var$13 = var$13 + 1 | 0;
-    }
-    return var$3;
+    return jl_StringBuilder_toString(var$1);
 }
 var mq_Client = $rt_classWithoutFields();
 function mq_Client_main($args) {
-    var $secondWorker, $div, var$4;
+    var $i, $div, $secondWorker, $endTime, $running, var$7;
     jl_String__clinit_();
     jl_Integer__clinit_();
     jl_Character__clinit_();
-    $secondWorker = $rt_globals.window.document;
-    $div = $secondWorker.createElement("div");
-    var$4 = $secondWorker.createTextNode("me working");
-    $div.appendChild(var$4);
-    $secondWorker.body.appendChild($div);
-    $secondWorker = mqw_Worker_fromScript$js_body$_6("self.onmessage = (message) => { self.postMessage(`${message.data} (echo from main thread)`); };");
-    var$4 = otji_JS_function(new mq_Client$main$lambda$_1_0, "handleEvent");
-    $secondWorker.onmessage = var$4;
-    var$4 = "Hello, world!";
-    $secondWorker.postMessage(var$4);
+    $i = $rt_globals.window.document;
+    $div = $i.createElement("div");
+    $secondWorker = $i.createTextNode("me working");
+    $div.appendChild($secondWorker);
+    $i.body.appendChild($div);
+    $secondWorker = mqw_Worker_fromScript$js_body$_6("self.onmessage = (message) => { self.postMessage(message.data + 1); };");
+    $endTime = Long_add(jl_System_currentTimeMillis(), Long_fromInt(1000));
+    $i = new juca_AtomicLong;
+    $i.$value = Long_ZERO;
+    $running = new juca_AtomicBoolean;
+    $running.$value0 = 1;
+    var$7 = new mq_Client$main$lambda$_2_0;
+    var$7.$_0 = $running;
+    var$7.$_1 = $endTime;
+    var$7.$_2 = $i;
+    var$7.$_3 = $secondWorker;
+    $div = otji_JS_function(var$7, "handleEvent");
+    $secondWorker.onmessage = $div;
+    $div = Long_toNumber($i.$value);
+    $secondWorker.postMessage($div);
 }
 var jlr_AnnotatedElement = $rt_classWithoutFields(0);
 var jlr_Type = $rt_classWithoutFields(0);
@@ -1181,8 +1169,85 @@ function jl_AbstractStringBuilder() {
     a.$buffer = null;
     a.$length = 0;
 }
+function jl_AbstractStringBuilder_insert($this, $target, $value, $radix) {
+    var $positive, var$5, var$6, var$7, $sz, $pos, $pos_0;
+    $positive = 1;
+    if (Long_lt($value, Long_ZERO)) {
+        $positive = 0;
+        $value = Long_neg($value);
+    }
+    a: {
+        var$5 = Long_fromInt($radix);
+        if (Long_lt($value, var$5)) {
+            if ($positive)
+                jl_AbstractStringBuilder_insertSpace($this, $target, $target + 1 | 0);
+            else {
+                jl_AbstractStringBuilder_insertSpace($this, $target, $target + 2 | 0);
+                var$6 = $this.$buffer.data;
+                var$7 = $target + 1 | 0;
+                var$6[$target] = 45;
+                $target = var$7;
+            }
+            $this.$buffer.data[$target] = jl_Character_forDigit(Long_lo($value), $radix);
+        } else {
+            $sz = 1;
+            $pos = Long_fromInt(1);
+            while (true) {
+                $pos_0 = Long_mul($pos, var$5);
+                if (Long_le($pos_0, $pos))
+                    break;
+                if (Long_gt($pos_0, $value))
+                    break;
+                $sz = $sz + 1 | 0;
+                $pos = $pos_0;
+            }
+            if (!$positive)
+                $sz = $sz + 1 | 0;
+            jl_AbstractStringBuilder_insertSpace($this, $target, $target + $sz | 0);
+            if ($positive)
+                $sz = $target;
+            else {
+                var$6 = $this.$buffer.data;
+                $sz = $target + 1 | 0;
+                var$6[$target] = 45;
+            }
+            while (true) {
+                if (Long_le($pos, Long_ZERO))
+                    break a;
+                var$6 = $this.$buffer.data;
+                $target = $sz + 1 | 0;
+                var$6[$sz] = jl_Character_forDigit(Long_lo(Long_div($value, $pos)), $radix);
+                $value = Long_rem($value, $pos);
+                $pos = Long_div($pos, var$5);
+                $sz = $target;
+            }
+        }
+    }
+    return $this;
+}
+function jl_AbstractStringBuilder_insertSpace($this, $start, $end) {
+    var var$3, $sz, $i, var$6;
+    var$3 = $this.$length;
+    $sz = var$3 - $start | 0;
+    jl_StringBuilder_ensureCapacity($this, (var$3 + $end | 0) - $start | 0);
+    $i = $sz - 1 | 0;
+    while ($i >= 0) {
+        var$6 = $this.$buffer.data;
+        var$6[$end + $i | 0] = var$6[$start + $i | 0];
+        $i = $i + (-1) | 0;
+    }
+    $this.$length = $this.$length + ($end - $start | 0) | 0;
+}
 var jl_Appendable = $rt_classWithoutFields(0);
 var jl_StringBuilder = $rt_classWithoutFields(jl_AbstractStringBuilder);
+function jl_StringBuilder__init_() {
+    var var_0 = new jl_StringBuilder();
+    jl_StringBuilder__init_0(var_0);
+    return var_0;
+}
+function jl_StringBuilder__init_0($this) {
+    $this.$buffer = $rt_createCharArray(16);
+}
 function jl_StringBuilder_append($this, $obj) {
     var var$2, var$3, var$4, var$5, var$6;
     var$2 = $this.$length;
@@ -1209,6 +1274,21 @@ function jl_StringBuilder_append($this, $obj) {
         return $this;
     }
     $rt_throw(jl_StringIndexOutOfBoundsException__init_());
+}
+function jl_StringBuilder_toString($this) {
+    var var$1, var$2, var$3, var$4, var$5, var$6;
+    var$1 = new jl_String;
+    var$2 = $this.$buffer;
+    var$3 = $this.$length;
+    var$4 = $rt_createCharArray(var$3);
+    var$5 = var$4.data;
+    var$1.$characters = var$4;
+    var$6 = 0;
+    while (var$6 < var$3) {
+        var$5[var$6] = var$2.data[var$6 + 0 | 0];
+        var$6 = var$6 + 1 | 0;
+    }
+    return var$1;
 }
 function jl_StringBuilder_ensureCapacity($this, var$1) {
     var var$2, var$3, var$4, var$5, var$6;
@@ -1286,12 +1366,52 @@ function mqw_Worker_dispatchEvent$exported$4(var$0, var$1) {
 function mqw_Worker_addEventListener$exported$5(var$0, var$1, var$2, var$3) {
     var$0.$addEventListener0($rt_str(var$1), otji_JS_functionAsObject(var$2, "handleEvent"), var$3 ? 1 : 0);
 }
-var otjde_EventListener = $rt_classWithoutFields(0);
-var mq_Client$main$lambda$_1_0 = $rt_classWithoutFields();
-function mq_Client$main$lambda$_1_0_handleEvent$exported$0(var$0, var$1) {
-    $rt_globals.alert(var$1.data);
+var jl_System = $rt_classWithoutFields();
+function jl_System_currentTimeMillis() {
+    return Long_fromNumber(new Date().getTime());
 }
-var otjc_JSString = $rt_classWithoutFields();
+function juca_AtomicLong() {
+    var a = this; jl_Number.call(a);
+    a.$value = Long_ZERO;
+    a.$version = 0;
+}
+function juca_AtomicBoolean() {
+    jl_Object.call(this);
+    this.$value0 = 0;
+}
+var otjde_EventListener = $rt_classWithoutFields(0);
+function mq_Client$main$lambda$_2_0() {
+    var a = this; jl_Object.call(a);
+    a.$_0 = null;
+    a.$_1 = Long_ZERO;
+    a.$_2 = null;
+    a.$_3 = null;
+}
+function mq_Client$main$lambda$_2_0_handleEvent$exported$0(var$0, var$1) {
+    var var$2, var$3, var$4, var$5;
+    var$2 = var$0.$_0;
+    var$3 = var$0.$_1;
+    var$4 = var$0.$_2;
+    var$5 = var$0.$_3;
+    if (var$2.$value0) {
+        if (Long_lt(jl_System_currentTimeMillis(), var$3)) {
+            var$3 = Long_fromNumber($rt_globals.Number(var$1.data));
+            var$4.$value = var$3;
+            var$4.$version = var$4.$version + 1 | 0;
+            var$1 = Long_toNumber(var$3);
+            var$5.postMessage(var$1);
+        } else {
+            var$2.$value0 = 0;
+            var$3 = var$4.$value;
+            var$1 = jl_StringBuilder__init_();
+            var$2 = jl_StringBuilder_append(var$1, $rt_s(2));
+            jl_AbstractStringBuilder_insert(var$2, var$2.$length, var$3, 10);
+            jl_StringBuilder_append(var$2, $rt_s(3));
+            $rt_globals.alert($rt_ustr(jl_StringBuilder_toString(var$1)));
+        }
+    }
+}
+var otjc_JSNumber = $rt_classWithoutFields();
 var otci_IntegerUtil = $rt_classWithoutFields();
 var otjde_FocusEventTarget = $rt_classWithoutFields(0);
 var otjde_MouseEventTarget = $rt_classWithoutFields(0);
@@ -1328,6 +1448,11 @@ var jl_String$_clinit_$lambda$_84_0 = $rt_classWithoutFields();
 var jl_Character = $rt_classWithoutFields();
 var jl_Character_TYPE = null;
 var jl_Character_characterCache = null;
+function jl_Character_forDigit($digit, $radix) {
+    if ($radix >= 2 && $radix <= 36 && $digit < $radix)
+        return $digit < 10 ? (48 + $digit | 0) & 65535 : ((97 + $digit | 0) - 10 | 0) & 65535;
+    return 0;
+}
 function jl_Character__clinit_() {
     jl_Character_TYPE = $rt_cls($rt_charcls());
     jl_Character_characterCache = $rt_createArray(jl_Character, 128);
@@ -1385,9 +1510,12 @@ otjdh_HTMLDocument, 0, jl_Object, [otjdx_Document, otjde_EventTarget], 3, 3, 0, 
 otjw_AbstractWorker, 0, jl_Object, [otj_JSObject, otjde_EventTarget], 3, 3, 0, 0, 0,
 mqw_Worker, 0, jl_Object, [otjw_AbstractWorker], 1, 3, 0, 0, ["$onError$exported$0", $rt_wrapFunction1(mqw_Worker_onError$exported$0), "$addEventListener$exported$1", $rt_wrapFunction2(mqw_Worker_addEventListener$exported$1), "$removeEventListener$exported$2", $rt_wrapFunction2(mqw_Worker_removeEventListener$exported$2), "$removeEventListener$exported$3", $rt_wrapFunction3(mqw_Worker_removeEventListener$exported$3), "$dispatchEvent$exported$4", $rt_wrapFunction1(mqw_Worker_dispatchEvent$exported$4), "$addEventListener$exported$5",
 $rt_wrapFunction3(mqw_Worker_addEventListener$exported$5)],
+jl_System, 0, jl_Object, [], 4, 3, 0, 0, 0,
+juca_AtomicLong, 0, jl_Number, [ji_Serializable], 0, 3, 0, 0, 0,
+juca_AtomicBoolean, 0, jl_Object, [ji_Serializable], 0, 3, 0, 0, 0,
 otjde_EventListener, 0, jl_Object, [otj_JSObject], 3, 3, 0, 0, 0,
-mq_Client$main$lambda$_1_0, 0, jl_Object, [otjde_EventListener], 0, 3, 0, 0, ["$handleEvent$exported$0", $rt_wrapFunction1(mq_Client$main$lambda$_1_0_handleEvent$exported$0)],
-otjc_JSString, 0, jl_Object, [otj_JSObject], 1, 3, 0, 0, 0,
+mq_Client$main$lambda$_2_0, 0, jl_Object, [otjde_EventListener], 0, 3, 0, 0, ["$handleEvent$exported$0", $rt_wrapFunction1(mq_Client$main$lambda$_2_0_handleEvent$exported$0)],
+otjc_JSNumber, 0, jl_Object, [otj_JSObject], 1, 3, 0, 0, 0,
 otci_IntegerUtil, 0, jl_Object, [], 4, 3, 0, 0, 0,
 otjde_FocusEventTarget, 0, jl_Object, [otjde_EventTarget], 3, 3, 0, 0, 0,
 otjde_MouseEventTarget, 0, jl_Object, [otjde_EventTarget], 3, 3, 0, 0, 0,
@@ -1400,11 +1528,11 @@ otjc_JSArrayReader, 0, jl_Object, [otj_JSObject], 3, 3, 0, 0, 0,
 otjb_Window, 0, jl_Object, [otj_JSObject, otjb_WindowEventTarget, otjb_StorageProvider, otjc_JSArrayReader], 1, 3, 0, 0, ["$addEventListener$exported$0", $rt_wrapFunction2(otjb_Window_addEventListener$exported$0), "$removeEventListener$exported$1", $rt_wrapFunction2(otjb_Window_removeEventListener$exported$1), "$get$exported$2", $rt_wrapFunction1(otjb_Window_get$exported$2), "$removeEventListener$exported$3", $rt_wrapFunction3(otjb_Window_removeEventListener$exported$3), "$dispatchEvent$exported$4", $rt_wrapFunction1(otjb_Window_dispatchEvent$exported$4),
 "$getLength$exported$5", $rt_wrapFunction0(otjb_Window_getLength$exported$5), "$addEventListener$exported$6", $rt_wrapFunction3(otjb_Window_addEventListener$exported$6)],
 ju_Comparator, 0, jl_Object, [], 3, 3, 0, 0, 0,
-jl_String$_clinit_$lambda$_84_0, 0, jl_Object, [ju_Comparator], 0, 3, 0, 0, 0,
-jl_Character, 0, jl_Object, [jl_Comparable], 0, 3, 0, 0, 0,
+jl_String$_clinit_$lambda$_84_0, 0, jl_Object, [ju_Comparator], 0, 3, 0, 0, 0]);
+$rt_metadata([jl_Character, 0, jl_Object, [jl_Comparable], 0, 3, 0, 0, 0,
 jl_IndexOutOfBoundsException, 0, jl_RuntimeException, [], 0, 3, 0, 0, 0,
-jl_StringIndexOutOfBoundsException, 0, jl_IndexOutOfBoundsException, [], 0, 3, 0, 0, 0]);
-$rt_metadata([jl_Math, 0, jl_Object, [], 4, 3, 0, 0, 0,
+jl_StringIndexOutOfBoundsException, 0, jl_IndexOutOfBoundsException, [], 0, 3, 0, 0, 0,
+jl_Math, 0, jl_Object, [], 4, 3, 0, 0, 0,
 ju_Arrays, 0, jl_Object, [], 0, 3, 0, 0, 0]);
 function $rt_array(cls, data) {
     this.$monitor = null;
@@ -1437,7 +1565,7 @@ $rt_setCloneMethod($rt_array.prototype, function() {
     }
     return new $rt_array(this.type, dataCopy);
 });
-$rt_stringPool(["0", "null"]);
+$rt_stringPool(["0", "null", "finished benchmark: ", " round trip(s) between worker per second"]);
 jl_String.prototype.toString = function() {
     return $rt_ustr(this);
 };
@@ -1448,6 +1576,615 @@ jl_Object.prototype.toString = function() {
 jl_Object.prototype.__teavm_class__ = function() {
     return $dbg_class(this);
 };
+var Long_eq;
+var Long_ne;
+var Long_gt;
+var Long_ge;
+var Long_lt;
+var Long_le;
+var Long_compare;
+var Long_add;
+var Long_sub;
+var Long_inc;
+var Long_dec;
+var Long_mul;
+var Long_div;
+var Long_rem;
+var Long_udiv;
+var Long_urem;
+var Long_neg;
+var Long_and;
+var Long_or;
+var Long_xor;
+var Long_shl;
+var Long_shr;
+var Long_shru;
+var Long_not;
+if (typeof $rt_globals.BigInt !== 'function') {
+    Long_eq = function(a, b) {
+        return a.hi === b.hi && a.lo === b.lo;
+    };
+    Long_ne = function(a, b) {
+        return a.hi !== b.hi || a.lo !== b.lo;
+    };
+    Long_gt = function(a, b) {
+        if (a.hi < b.hi) {
+            return false;
+        }
+        if (a.hi > b.hi) {
+            return true;
+        }
+        var x = a.lo >>> 1;
+        var y = b.lo >>> 1;
+        if (x !== y) {
+            return x > y;
+        }
+        return (a.lo & 1) > (b.lo & 1);
+    };
+    Long_ge = function(a, b) {
+        if (a.hi < b.hi) {
+            return false;
+        }
+        if (a.hi > b.hi) {
+            return true;
+        }
+        var x = a.lo >>> 1;
+        var y = b.lo >>> 1;
+        if (x !== y) {
+            return x >= y;
+        }
+        return (a.lo & 1) >= (b.lo & 1);
+    };
+    Long_lt = function(a, b) {
+        if (a.hi > b.hi) {
+            return false;
+        }
+        if (a.hi < b.hi) {
+            return true;
+        }
+        var x = a.lo >>> 1;
+        var y = b.lo >>> 1;
+        if (x !== y) {
+            return x < y;
+        }
+        return (a.lo & 1) < (b.lo & 1);
+    };
+    Long_le = function(a, b) {
+        if (a.hi > b.hi) {
+            return false;
+        }
+        if (a.hi < b.hi) {
+            return true;
+        }
+        var x = a.lo >>> 1;
+        var y = b.lo >>> 1;
+        if (x !== y) {
+            return x <= y;
+        }
+        return (a.lo & 1) <= (b.lo & 1);
+    };
+    Long_add = function(a, b) {
+        if (a.hi === a.lo >> 31 && b.hi === b.lo >> 31) {
+            return Long_fromNumber(a.lo + b.lo);
+        } else if ($rt_globals.Math.abs(a.hi) < Long_MAX_NORMAL && $rt_globals.Math.abs(b.hi) < Long_MAX_NORMAL) {
+            return Long_fromNumber(Long_toNumber(a) + Long_toNumber(b));
+        }
+        var a_lolo = a.lo & 0xFFFF;
+        var a_lohi = a.lo >>> 16;
+        var a_hilo = a.hi & 0xFFFF;
+        var a_hihi = a.hi >>> 16;
+        var b_lolo = b.lo & 0xFFFF;
+        var b_lohi = b.lo >>> 16;
+        var b_hilo = b.hi & 0xFFFF;
+        var b_hihi = b.hi >>> 16;
+        var lolo = a_lolo + b_lolo | 0;
+        var lohi = a_lohi + b_lohi + (lolo >> 16) | 0;
+        var hilo = a_hilo + b_hilo + (lohi >> 16) | 0;
+        var hihi = a_hihi + b_hihi + (hilo >> 16) | 0;
+        return new Long(lolo & 0xFFFF | (lohi & 0xFFFF) << 16, hilo & 0xFFFF | (hihi & 0xFFFF) << 16);
+    };
+    Long_inc = function(a) {
+        var lo = a.lo + 1 | 0;
+        var hi = a.hi;
+        if (lo === 0) {
+            hi = hi + 1 | 0;
+        }
+        return new Long(lo, hi);
+    };
+    Long_dec = function(a) {
+        var lo = a.lo - 1 | 0;
+        var hi = a.hi;
+        if (lo ===  -1) {
+            hi = hi - 1 | 0;
+        }
+        return new Long(lo, hi);
+    };
+    Long_neg = function(a) {
+        return Long_inc(new Long(a.lo ^ 0xFFFFFFFF, a.hi ^ 0xFFFFFFFF));
+    };
+    Long_sub = function(a, b) {
+        if (a.hi === a.lo >> 31 && b.hi === b.lo >> 31) {
+            return Long_fromNumber(a.lo - b.lo);
+        }
+        var a_lolo = a.lo & 0xFFFF;
+        var a_lohi = a.lo >>> 16;
+        var a_hilo = a.hi & 0xFFFF;
+        var a_hihi = a.hi >>> 16;
+        var b_lolo = b.lo & 0xFFFF;
+        var b_lohi = b.lo >>> 16;
+        var b_hilo = b.hi & 0xFFFF;
+        var b_hihi = b.hi >>> 16;
+        var lolo = a_lolo - b_lolo | 0;
+        var lohi = a_lohi - b_lohi + (lolo >> 16) | 0;
+        var hilo = a_hilo - b_hilo + (lohi >> 16) | 0;
+        var hihi = a_hihi - b_hihi + (hilo >> 16) | 0;
+        return new Long(lolo & 0xFFFF | (lohi & 0xFFFF) << 16, hilo & 0xFFFF | (hihi & 0xFFFF) << 16);
+    };
+    Long_compare = function(a, b) {
+        var r = a.hi - b.hi;
+        if (r !== 0) {
+            return r;
+        }
+        r = (a.lo >>> 1) - (b.lo >>> 1);
+        if (r !== 0) {
+            return r;
+        }
+        return (a.lo & 1) - (b.lo & 1);
+    };
+    Long_mul = function(a, b) {
+        var positive = Long_isNegative(a) === Long_isNegative(b);
+        if (Long_isNegative(a)) {
+            a = Long_neg(a);
+        }
+        if (Long_isNegative(b)) {
+            b = Long_neg(b);
+        }
+        var a_lolo = a.lo & 0xFFFF;
+        var a_lohi = a.lo >>> 16;
+        var a_hilo = a.hi & 0xFFFF;
+        var a_hihi = a.hi >>> 16;
+        var b_lolo = b.lo & 0xFFFF;
+        var b_lohi = b.lo >>> 16;
+        var b_hilo = b.hi & 0xFFFF;
+        var b_hihi = b.hi >>> 16;
+        var lolo = 0;
+        var lohi = 0;
+        var hilo = 0;
+        var hihi = 0;
+        lolo = a_lolo * b_lolo | 0;
+        lohi = lolo >>> 16;
+        lohi = (lohi & 0xFFFF) + a_lohi * b_lolo | 0;
+        hilo = hilo + (lohi >>> 16) | 0;
+        lohi = (lohi & 0xFFFF) + a_lolo * b_lohi | 0;
+        hilo = hilo + (lohi >>> 16) | 0;
+        hihi = hilo >>> 16;
+        hilo = (hilo & 0xFFFF) + a_hilo * b_lolo | 0;
+        hihi = hihi + (hilo >>> 16) | 0;
+        hilo = (hilo & 0xFFFF) + a_lohi * b_lohi | 0;
+        hihi = hihi + (hilo >>> 16) | 0;
+        hilo = (hilo & 0xFFFF) + a_lolo * b_hilo | 0;
+        hihi = hihi + (hilo >>> 16) | 0;
+        hihi = hihi + a_hihi * b_lolo + a_hilo * b_lohi + a_lohi * b_hilo + a_lolo * b_hihi | 0;
+        var result = new Long(lolo & 0xFFFF | lohi << 16, hilo & 0xFFFF | hihi << 16);
+        return positive ? result : Long_neg(result);
+    };
+    Long_div = function(a, b) {
+        if ($rt_globals.Math.abs(a.hi) < Long_MAX_NORMAL && $rt_globals.Math.abs(b.hi) < Long_MAX_NORMAL) {
+            return Long_fromNumber(Long_toNumber(a) / Long_toNumber(b));
+        }
+        return (Long_divRem(a, b))[0];
+    };
+    Long_udiv = function(a, b) {
+        if (a.hi >= 0 && a.hi < Long_MAX_NORMAL && b.hi >= 0 && b.hi < Long_MAX_NORMAL) {
+            return Long_fromNumber(Long_toNumber(a) / Long_toNumber(b));
+        }
+        return (Long_udivRem(a, b))[0];
+    };
+    Long_rem = function(a, b) {
+        if ($rt_globals.Math.abs(a.hi) < Long_MAX_NORMAL && $rt_globals.Math.abs(b.hi) < Long_MAX_NORMAL) {
+            return Long_fromNumber(Long_toNumber(a) % Long_toNumber(b));
+        }
+        return (Long_divRem(a, b))[1];
+    };
+    Long_urem = function(a, b) {
+        if (a.hi >= 0 && a.hi < Long_MAX_NORMAL && b.hi >= 0 && b.hi < Long_MAX_NORMAL) {
+            return Long_fromNumber(Long_toNumber(a) / Long_toNumber(b));
+        }
+        return (Long_udivRem(a, b))[1];
+    };
+    function Long_divRem(a, b) {
+        if (b.lo === 0 && b.hi === 0) {
+            throw new $rt_globals.Error("Division by zero");
+        }
+        var positive = Long_isNegative(a) === Long_isNegative(b);
+        if (Long_isNegative(a)) {
+            a = Long_neg(a);
+        }
+        if (Long_isNegative(b)) {
+            b = Long_neg(b);
+        }
+        a = new LongInt(a.lo, a.hi, 0);
+        b = new LongInt(b.lo, b.hi, 0);
+        var q = LongInt_div(a, b);
+        a = new Long(a.lo, a.hi);
+        q = new Long(q.lo, q.hi);
+        return positive ? [q, a] : [Long_neg(q), Long_neg(a)];
+    }
+    function Long_udivRem(a, b) {
+        if (b.lo === 0 && b.hi === 0) {
+            throw new $rt_globals.Error("Division by zero");
+        }
+        a = new LongInt(a.lo, a.hi, 0);
+        b = new LongInt(b.lo, b.hi, 0);
+        var q = LongInt_div(a, b);
+        a = new Long(a.lo, a.hi);
+        q = new Long(q.lo, q.hi);
+        return [q, a];
+    }
+    function Long_shiftLeft16(a) {
+        return new Long(a.lo << 16, a.lo >>> 16 | a.hi << 16);
+    }
+    function Long_shiftRight16(a) {
+        return new Long(a.lo >>> 16 | a.hi << 16, a.hi >>> 16);
+    }
+    Long_and = function(a, b) {
+        return new Long(a.lo & b.lo, a.hi & b.hi);
+    };
+    Long_or = function(a, b) {
+        return new Long(a.lo | b.lo, a.hi | b.hi);
+    };
+    Long_xor = function(a, b) {
+        return new Long(a.lo ^ b.lo, a.hi ^ b.hi);
+    };
+    Long_shl = function(a, b) {
+        b &= 63;
+        if (b === 0) {
+            return a;
+        } else if (b < 32) {
+            return new Long(a.lo << b, a.lo >>> 32 - b | a.hi << b);
+        } else if (b === 32) {
+            return new Long(0, a.lo);
+        } else {
+            return new Long(0, a.lo << b - 32);
+        }
+    };
+    Long_shr = function(a, b) {
+        b &= 63;
+        if (b === 0) {
+            return a;
+        } else if (b < 32) {
+            return new Long(a.lo >>> b | a.hi << 32 - b, a.hi >> b);
+        } else if (b === 32) {
+            return new Long(a.hi, a.hi >> 31);
+        } else {
+            return new Long(a.hi >> b - 32, a.hi >> 31);
+        }
+    };
+    Long_shru = function(a, b) {
+        b &= 63;
+        if (b === 0) {
+            return a;
+        } else if (b < 32) {
+            return new Long(a.lo >>> b | a.hi << 32 - b, a.hi >>> b);
+        } else if (b === 32) {
+            return new Long(a.hi, 0);
+        } else {
+            return new Long(a.hi >>> b - 32, 0);
+        }
+    };
+    Long_not = function(a) {
+        return new Long(~a.hi, ~a.lo);
+    };
+    function LongInt(lo, hi, sup) {
+        this.lo = lo;
+        this.hi = hi;
+        this.sup = sup;
+    }
+    function LongInt_mul(a, b) {
+        var a_lolo = (a.lo & 0xFFFF) * b | 0;
+        var a_lohi = (a.lo >>> 16) * b | 0;
+        var a_hilo = (a.hi & 0xFFFF) * b | 0;
+        var a_hihi = (a.hi >>> 16) * b | 0;
+        var sup = a.sup * b | 0;
+        a_lohi = a_lohi + (a_lolo >>> 16) | 0;
+        a_hilo = a_hilo + (a_lohi >>> 16) | 0;
+        a_hihi = a_hihi + (a_hilo >>> 16) | 0;
+        sup = sup + (a_hihi >>> 16) | 0;
+        a.lo = a_lolo & 0xFFFF | a_lohi << 16;
+        a.hi = a_hilo & 0xFFFF | a_hihi << 16;
+        a.sup = sup & 0xFFFF;
+    }
+    function LongInt_sub(a, b) {
+        var a_lolo = a.lo & 0xFFFF;
+        var a_lohi = a.lo >>> 16;
+        var a_hilo = a.hi & 0xFFFF;
+        var a_hihi = a.hi >>> 16;
+        var b_lolo = b.lo & 0xFFFF;
+        var b_lohi = b.lo >>> 16;
+        var b_hilo = b.hi & 0xFFFF;
+        var b_hihi = b.hi >>> 16;
+        a_lolo = a_lolo - b_lolo | 0;
+        a_lohi = a_lohi - b_lohi + (a_lolo >> 16) | 0;
+        a_hilo = a_hilo - b_hilo + (a_lohi >> 16) | 0;
+        a_hihi = a_hihi - b_hihi + (a_hilo >> 16) | 0;
+        var sup = a.sup - b.sup + (a_hihi >> 16) | 0;
+        a.lo = a_lolo & 0xFFFF | a_lohi << 16;
+        a.hi = a_hilo & 0xFFFF | a_hihi << 16;
+        a.sup = sup;
+    }
+    function LongInt_add(a, b) {
+        var a_lolo = a.lo & 0xFFFF;
+        var a_lohi = a.lo >>> 16;
+        var a_hilo = a.hi & 0xFFFF;
+        var a_hihi = a.hi >>> 16;
+        var b_lolo = b.lo & 0xFFFF;
+        var b_lohi = b.lo >>> 16;
+        var b_hilo = b.hi & 0xFFFF;
+        var b_hihi = b.hi >>> 16;
+        a_lolo = a_lolo + b_lolo | 0;
+        a_lohi = a_lohi + b_lohi + (a_lolo >> 16) | 0;
+        a_hilo = a_hilo + b_hilo + (a_lohi >> 16) | 0;
+        a_hihi = a_hihi + b_hihi + (a_hilo >> 16) | 0;
+        var sup = a.sup + b.sup + (a_hihi >> 16) | 0;
+        a.lo = a_lolo & 0xFFFF | a_lohi << 16;
+        a.hi = a_hilo & 0xFFFF | a_hihi << 16;
+        a.sup = sup;
+    }
+    function LongInt_inc(a) {
+        a.lo = a.lo + 1 | 0;
+        if (a.lo === 0) {
+            a.hi = a.hi + 1 | 0;
+            if (a.hi === 0) {
+                a.sup = a.sup + 1 & 0xFFFF;
+            }
+        }
+    }
+    function LongInt_dec(a) {
+        a.lo = a.lo - 1 | 0;
+        if (a.lo ===  -1) {
+            a.hi = a.hi - 1 | 0;
+            if (a.hi ===  -1) {
+                a.sup = a.sup - 1 & 0xFFFF;
+            }
+        }
+    }
+    function LongInt_ucompare(a, b) {
+        var r = a.sup - b.sup;
+        if (r !== 0) {
+            return r;
+        }
+        r = (a.hi >>> 1) - (b.hi >>> 1);
+        if (r !== 0) {
+            return r;
+        }
+        r = (a.hi & 1) - (b.hi & 1);
+        if (r !== 0) {
+            return r;
+        }
+        r = (a.lo >>> 1) - (b.lo >>> 1);
+        if (r !== 0) {
+            return r;
+        }
+        return (a.lo & 1) - (b.lo & 1);
+    }
+    function LongInt_numOfLeadingZeroBits(a) {
+        var n = 0;
+        var d = 16;
+        while (d > 0) {
+            if (a >>> d !== 0) {
+                a >>>= d;
+                n = n + d | 0;
+            }
+            d = d / 2 | 0;
+        }
+        return 31 - n;
+    }
+    function LongInt_shl(a, b) {
+        if (b === 0) {
+            return;
+        }
+        if (b < 32) {
+            a.sup = (a.hi >>> 32 - b | a.sup << b) & 0xFFFF;
+            a.hi = a.lo >>> 32 - b | a.hi << b;
+            a.lo <<= b;
+        } else if (b === 32) {
+            a.sup = a.hi & 0xFFFF;
+            a.hi = a.lo;
+            a.lo = 0;
+        } else if (b < 64) {
+            a.sup = (a.lo >>> 64 - b | a.hi << b - 32) & 0xFFFF;
+            a.hi = a.lo << b;
+            a.lo = 0;
+        } else if (b === 64) {
+            a.sup = a.lo & 0xFFFF;
+            a.hi = 0;
+            a.lo = 0;
+        } else {
+            a.sup = a.lo << b - 64 & 0xFFFF;
+            a.hi = 0;
+            a.lo = 0;
+        }
+    }
+    function LongInt_shr(a, b) {
+        if (b === 0) {
+            return;
+        }
+        if (b === 32) {
+            a.lo = a.hi;
+            a.hi = a.sup;
+            a.sup = 0;
+        } else if (b < 32) {
+            a.lo = a.lo >>> b | a.hi << 32 - b;
+            a.hi = a.hi >>> b | a.sup << 32 - b;
+            a.sup >>>= b;
+        } else if (b === 64) {
+            a.lo = a.sup;
+            a.hi = 0;
+            a.sup = 0;
+        } else if (b < 64) {
+            a.lo = a.hi >>> b - 32 | a.sup << 64 - b;
+            a.hi = a.sup >>> b - 32;
+            a.sup = 0;
+        } else {
+            a.lo = a.sup >>> b - 64;
+            a.hi = 0;
+            a.sup = 0;
+        }
+    }
+    function LongInt_copy(a) {
+        return new LongInt(a.lo, a.hi, a.sup);
+    }
+    function LongInt_div(a, b) {
+        var bits = b.hi !== 0 ? LongInt_numOfLeadingZeroBits(b.hi) : LongInt_numOfLeadingZeroBits(b.lo) + 32;
+        var sz = 1 + (bits / 16 | 0);
+        var dividentBits = bits % 16;
+        LongInt_shl(b, bits);
+        LongInt_shl(a, dividentBits);
+        var q = new LongInt(0, 0, 0);
+        while (sz-- > 0) {
+            LongInt_shl(q, 16);
+            var digitA = (a.hi >>> 16) + 0x10000 * a.sup;
+            var digitB = b.hi >>> 16;
+            var digit = digitA / digitB | 0;
+            var t = LongInt_copy(b);
+            LongInt_mul(t, digit);
+            if (LongInt_ucompare(t, a) >= 0) {
+                while (LongInt_ucompare(t, a) > 0) {
+                    LongInt_sub(t, b);
+                     --digit;
+                }
+            } else {
+                while (true) {
+                    var nextT = LongInt_copy(t);
+                    LongInt_add(nextT, b);
+                    if (LongInt_ucompare(nextT, a) > 0) {
+                        break;
+                    }
+                    t = nextT;
+                    ++digit;
+                }
+            }
+            LongInt_sub(a, t);
+            q.lo |= digit;
+            LongInt_shl(a, 16);
+        }
+        LongInt_shr(a, bits + 16);
+        return q;
+    }
+} else {
+    Long_eq = function(a, b) {
+        return a === b;
+    };
+    Long_ne = function(a, b) {
+        return a !== b;
+    };
+    Long_gt = function(a, b) {
+        return a > b;
+    };
+    Long_ge = function(a, b) {
+        return a >= b;
+    };
+    Long_lt = function(a, b) {
+        return a < b;
+    };
+    Long_le = function(a, b) {
+        return a <= b;
+    };
+    Long_add = function(a, b) {
+        return $rt_globals.BigInt.asIntN(64, a + b);
+    };
+    Long_inc = function(a) {
+        return $rt_globals.BigInt.asIntN(64, a + 1);
+    };
+    Long_dec = function(a) {
+        return $rt_globals.BigInt.asIntN(64, a - 1);
+    };
+    Long_neg = function(a) {
+        return $rt_globals.BigInt.asIntN(64,  -a);
+    };
+    Long_sub = function(a, b) {
+        return $rt_globals.BigInt.asIntN(64, a - b);
+    };
+    Long_compare = function(a, b) {
+        return a < b ?  -1 : a > b ? 1 : 0;
+    };
+    Long_mul = function(a, b) {
+        return $rt_globals.BigInt.asIntN(64, a * b);
+    };
+    Long_div = function(a, b) {
+        return $rt_globals.BigInt.asIntN(64, a / b);
+    };
+    Long_udiv = function(a, b) {
+        return $rt_globals.BigInt.asIntN(64, $rt_globals.BigInt.asUintN(64, a) / $rt_globals.BigInt.asUintN(64, b));
+    };
+    Long_rem = function(a, b) {
+        return $rt_globals.BigInt.asIntN(64, a % b);
+    };
+    Long_urem = function(a, b) {
+        return $rt_globals.BigInt.asIntN(64, $rt_globals.BigInt.asUintN(64, a) % $rt_globals.BigInt.asUintN(64, b));
+    };
+    Long_and = function(a, b) {
+        return $rt_globals.BigInt.asIntN(64, a & b);
+    };
+    Long_or = function(a, b) {
+        return $rt_globals.BigInt.asIntN(64, a | b);
+    };
+    Long_xor = function(a, b) {
+        return $rt_globals.BigInt.asIntN(64, a ^ b);
+    };
+    Long_shl = function(a, b) {
+        return $rt_globals.BigInt.asIntN(64, a << $rt_globals.BigInt(b & 63));
+    };
+    Long_shr = function(a, b) {
+        return $rt_globals.BigInt.asIntN(64, a >> $rt_globals.BigInt(b & 63));
+    };
+    Long_shru = function(a, b) {
+        return $rt_globals.BigInt.asIntN(64, $rt_globals.BigInt.asUintN(64, a) >> $rt_globals.BigInt(b & 63));
+    };
+    Long_not = function(a) {
+        return $rt_globals.BigInt.asIntN(64, ~a);
+    };
+}
+var Long_add = Long_add;
+
+var Long_sub = Long_sub;
+
+var Long_mul = Long_mul;
+
+var Long_div = Long_div;
+
+var Long_rem = Long_rem;
+
+var Long_or = Long_or;
+
+var Long_and = Long_and;
+
+var Long_xor = Long_xor;
+
+var Long_shl = Long_shl;
+
+var Long_shr = Long_shr;
+
+var Long_shru = Long_shru;
+
+var Long_compare = Long_compare;
+
+var Long_eq = Long_eq;
+
+var Long_ne = Long_ne;
+
+var Long_lt = Long_lt;
+
+var Long_le = Long_le;
+
+var Long_gt = Long_gt;
+
+var Long_ge = Long_ge;
+
+var Long_not = Long_not;
+
+var Long_neg = Long_neg;
+
 function $rt_startThread(runner, callback) {
     var result;
     try {
@@ -1483,7 +2220,7 @@ main.javaException = $rt_javaException;
     c.addEventListener = c.$addEventListener$exported$5;
     c.onError = c.$onError$exported$0;
     c.removeEventListener = c.$removeEventListener$exported$3;
-    c = mq_Client$main$lambda$_1_0.prototype;
+    c = mq_Client$main$lambda$_2_0.prototype;
     c.handleEvent = c.$handleEvent$exported$0;
     c = otjb_Window.prototype;
     c.dispatchEvent = c.$dispatchEvent$exported$4;

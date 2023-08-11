@@ -1,4 +1,4 @@
-package me.q13x.workerconcurrency;
+package me.q13x.workerconcurrency.wrappers;
 
 public interface IPCAdapter {
     public byte nextByte();

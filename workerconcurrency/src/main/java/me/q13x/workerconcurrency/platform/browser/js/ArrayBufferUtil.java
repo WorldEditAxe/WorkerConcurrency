@@ -1,4 +1,4 @@
-package me.q13x.workerconcurrency;
+package me.q13x.workerconcurrency.platform.browser.js;
 
 import org.teavm.jso.JSBody;
 import org.teavm.jso.typedarrays.ArrayBuffer;

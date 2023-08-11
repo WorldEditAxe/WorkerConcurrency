@@ -1,7 +1,8 @@
 package me.q13x.workerconcurrency.ipc.commands;
 
 import me.q13x.workerconcurrency.CommandEnum;
-import me.q13x.workerconcurrency.IPCAdapter;
+import me.q13x.workerconcurrency.ipc.IPCProtocol;
+import me.q13x.workerconcurrency.wrappers.IPCAdapter;
 
 public class SMPongCommand implements ICommand {
     int requestId = 0;
@@ -27,24 +28,14 @@ public class SMPongCommand implements ICommand {
 
     @Override
     public ICommand read(IPCAdapter adapter) {
-        // do nothing
-        byte[] packet = new byte[6];
-        int i = 0;
-        while (i < 6) {
-            packet[i] = adapter.nextByte();
-        }
-        
+        requestId = IPCProtocol.readVarInt(adapter);
         return this;
     }
 
     @Override
     public ICommand write(IPCAdapter adapter) {
-        short commandId = getCommandEnum().getCommandId();
-        adapter.write(new byte[] { 
-            (byte) (commandId >> 8), (byte) commandId,
-            (byte) (requestId >> 24), (byte) (requestId >> 16),
-            (byte) (requestId >> 8), (byte) requestId
-        });
+        IPCProtocol.writeVarInt(adapter, getCommandEnum().getCommandId());
+        IPCProtocol.writeVarInt(adapter, requestId);
         return this;
     }
     

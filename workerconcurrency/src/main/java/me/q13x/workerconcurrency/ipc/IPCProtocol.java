@@ -2,7 +2,8 @@ package me.q13x.workerconcurrency.ipc;
 
 import java.io.UnsupportedEncodingException;
 
-import me.q13x.workerconcurrency.IPCAdapter;
+import me.q13x.workerconcurrency.ipc.commands.ICommand;
+import me.q13x.workerconcurrency.wrappers.IPCAdapter;
 
 public class IPCProtocol {
     public static byte CONTINUE_BIT = (byte) (1 << 7);
@@ -67,5 +68,28 @@ public class IPCProtocol {
     public static void writeByteArray(IPCAdapter adapter, byte[] byteArray) {
         IPCProtocol.writeVarInt(adapter, byteArray.length);
         adapter.write(byteArray);
+    }
+
+    public static byte[] concatByteArrays(byte[][] arrays) {
+        byte[] newByteArray = new byte[0];
+        for (byte[] byteArray : arrays) {
+            byte[] oldByteArray = newByteArray;
+            int offset = oldByteArray.length;
+            newByteArray = new byte[newByteArray.length + byteArray.length];
+
+            for (int i = 0; i < oldByteArray.length; i++) {
+                newByteArray[i] = oldByteArray[i];
+            }
+            for (int i = offset; i < byteArray.length; i++) {
+                newByteArray[i] = oldByteArray[i - offset];
+            }
+        }
+        return newByteArray;
+    }
+
+    public static IPCAdapter writeCommand(short packetId, ICommand command, IPCAdapter adapter) {
+        IPCProtocol.writeVarInt(adapter, packetId);
+        command.write(adapter);
+        return adapter;
     }
 }
