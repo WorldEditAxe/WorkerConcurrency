@@ -3,13 +3,15 @@ package me.q13x.workerconcurrency;
 import org.teavm.jso.browser.Window;
 
 import java.util.function.BiConsumer;
-import java.util.function.Consumer;
 
 import me.q13x.workerconcurrency.ipc.CommandContext;
 import me.q13x.workerconcurrency.ipc.commands.ICommand;
 import me.q13x.workerconcurrency.ipc.commands.MSPingCommand;
 import me.q13x.workerconcurrency.ipc.commands.SMPongCommand;
 
+/**
+ * This Java class contains a list of valid cross-worker IPC commands.
+ */
 public enum CommandEnum {
     MS_PING((short) 0, true, MSPingCommand.class, (packet, context) -> {
         if (context.getEnvironmentType() == CommandContext.EnvironmentType.SLAVE) {

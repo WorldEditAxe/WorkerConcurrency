@@ -23,13 +23,13 @@ public class CommandContext {
         MASTER(0),
         SLAVE(1);
 
-        int networkId;
+        int networkValue;
 
-        EnvironmentType(int networkId) {
-            this.networkId = networkId;
+        EnvironmentType(int networkValue) {
+            this.networkValue = networkValue;
         }
 
-        public int getNetworkForm() {
+        public int getNetworkValue() {
             return this.networkId;
         }
     }
