@@ -30,7 +30,7 @@ public class CommandContext {
         }
 
         public int getNetworkValue() {
-            return this.networkId;
+            return this.networkValue;
         }
     }
 }

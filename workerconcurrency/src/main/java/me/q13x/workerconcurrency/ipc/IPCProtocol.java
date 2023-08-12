@@ -1,95 +1,225 @@
 package me.q13x.workerconcurrency.ipc;
 
-import java.io.UnsupportedEncodingException;
-
-import me.q13x.workerconcurrency.ipc.commands.ICommand;
-import me.q13x.workerconcurrency.wrappers.IPCAdapter;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 
 public class IPCProtocol {
-    public static byte CONTINUE_BIT = (byte) (1 << 7);
+
+    public static ReadResult<Integer> readVarInt(byte[] buffer) {
+        return IPCProtocol.readVarInt(buffer, 0);
+    }
     
-    public static int readVarInt(IPCAdapter adapter) {
+    public static ReadResult<Integer> readVarInt(byte[] buffer, int offset) {
         int value = 0;
         int shift = 0;
-        byte currentByte;
-
-        do {
-            currentByte = adapter.nextByte();
-            int maskedValue = currentByte & 0x7F; // Mask out the sign bit
-            value |= (maskedValue << shift);
-            shift += 7;
-        } while ((currentByte & CONTINUE_BIT) != 0);
-
-        return value;
-    }
-
-    public static void writeVarInt(IPCAdapter adapter, int value) {
-        do {
-            byte currentByte = (byte) (value & 0x7F); // Mask the lowest 7 bits
-            value >>>= 7; // Shift 7 bits to the right
-            if (value != 0) {
-                currentByte |= CONTINUE_BIT; // Set the continuation bit if there are more bytes
+        int bytesRead = 0;
+    
+        while (true) {
+            byte b = buffer[offset++];
+            bytesRead++;
+    
+            value |= (b & 0x7F) << shift;
+            if ((b & 0x80) == 0) {
+                break;
             }
-            adapter.write(new byte[] { currentByte }); // Write the byte to the adapter
-        } while (value != 0);
+            shift += 7;
+        }
+    
+        return new ReadResult<>(value, bytesRead);
     }
 
-    public static String readString(IPCAdapter adapter) {
-        int length = IPCProtocol.readVarInt(adapter);
-        String string = "";
+    public static byte[] writeVarInt(int number) {
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+    
+        while (true) {
+            if ((number & ~0x7F) == 0) {
+                outputStream.write(number);
+                break;
+            } else {
+                outputStream.write((number & 0x7F) | 0x80);
+                number >>>= 7;
+            }
+        }
+    
+        return outputStream.toByteArray();
+    }
 
-        while (string.length() < length) {
-            string += adapter.nextByte();
+    public static int calculateVarIntSize(int number) {
+        int size = 0;
+
+        while (true) {
+            if ((number & ~0x7F) == 0) {
+                size++;
+                break;
+            } else {
+                size++;
+                number >>>= 7;
+            }
         }
 
-        return string;
+        return size;
     }
 
-    public static void writeString(IPCAdapter adapter, String string) {
-        IPCProtocol.writeVarInt(adapter, string.length());
+    public static void writeVarLong(long value, OutputStream outputStream) throws IOException {
+        while ((value & ~0x7FL) != 0L) {
+            outputStream.write((int)(value & 0x7F) | 0x80);
+            value >>>= 7;
+        }
+        outputStream.write((int)value & 0x7F);
+    }
+
+    public static ReadResult<Long> readVarLong(byte[] buffer, int offset) {
+        long value = 0;
+        int shift = 0;
+
+        while (true) {
+            byte b = buffer[offset++];
+            value |= (long)(b & 0x7F) << shift;
+            if ((b & 0x80) == 0) {
+                break;
+            }
+            shift += 7;
+        }
+
+        return new ReadResult<>(value, offset - 1);
+    }
+
+    public static int calculateVarLongLength(long value) {
+        int length = 0;
+
+        do {
+            length++;
+            value >>>= 7;
+        } while (value != 0);
+
+        return length;
+    }
+
+    public static ReadResult<String> readString(byte[] buffer, int offset) {
+        ReadResult<Integer> lengthResult = IPCProtocol.readVarInt(buffer, offset);
+        offset += lengthResult.getReadBytes();
+        
+        int stringLength = lengthResult.getValue();
+        byte[] stringBytes = new byte[stringLength];
+        
+        System.arraycopy(buffer, offset, stringBytes, 0, stringLength);
+        offset += stringLength;
+
+        String string = new String(stringBytes, StandardCharsets.UTF_8);
+        
+        return new ReadResult<>(string, offset - lengthResult.getReadBytes());
+    }
+
+    public static byte[] writeString(String string) {
         try {
-            adapter.write(string.getBytes("utf-8"));
-        } catch (UnsupportedEncodingException err) {
+            byte[] stringBytes = string.getBytes("utf-8");
+            int stringLength = stringBytes.length;
+
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+            outputStream.write(writeVarInt(stringLength));  // Write length data
+            outputStream.write(stringBytes);               // Write string data
+
+            return outputStream.toByteArray();
+        } catch (IOException err) {
             throw new RuntimeException(err.getMessage());
         }
     }
 
-    public static byte[] readByteArray(IPCAdapter adapter) {
-        int length = IPCProtocol.readVarInt(adapter);
+    public static ReadResult<byte[]> readByteArray(byte[] buffer, int offset) {
+        ReadResult<Integer> lengthResult = IPCProtocol.readVarInt(buffer, offset);
+        int length = lengthResult.getValue();
+        offset += lengthResult.getReadBytes();
+        
         byte[] bytes = new byte[length];
         
         for (int location = 0; location < length; location++) {
-            bytes[location] = adapter.nextByte();
+            bytes[location] = buffer[offset++];
         }
+    
+        return new ReadResult<>(bytes, lengthResult.getReadBytes() + length);
+    }
+    
+    
+    public static byte[] writeByteArray(byte[] byteArray) {
+        byte[] lengthBytes = writeVarInt(byteArray.length);
+        
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        try {
+            outputStream.write(lengthBytes);
+            outputStream.write(byteArray);
+        } catch (IOException err) {
+            throw new RuntimeException(err.getMessage());
+        }
+        
+        return outputStream.toByteArray();
+    }
 
+    public static ReadResult<Short> readShort(byte[] buffer, int offset) {
+        short result = (short) ((buffer[offset] << 8) | (buffer[offset + 1] & 0xFF));
+        return new ReadResult<>(result, 2);
+    }
+    
+    public static byte[] writeShort(short value) {
+        byte[] bytes = new byte[2];
+        bytes[0] = (byte) (value >> 8);
+        bytes[1] = (byte) (value & 0xFF);
         return bytes;
     }
-
-    public static void writeByteArray(IPCAdapter adapter, byte[] byteArray) {
-        IPCProtocol.writeVarInt(adapter, byteArray.length);
-        adapter.write(byteArray);
-    }
+    
 
     public static byte[] concatByteArrays(byte[][] arrays) {
-        byte[] newByteArray = new byte[0];
-        for (byte[] byteArray : arrays) {
-            byte[] oldByteArray = newByteArray;
-            int offset = oldByteArray.length;
-            newByteArray = new byte[newByteArray.length + byteArray.length];
-
-            for (int i = 0; i < oldByteArray.length; i++) {
-                newByteArray[i] = oldByteArray[i];
-            }
-            for (int i = offset; i < byteArray.length; i++) {
-                newByteArray[i] = oldByteArray[i - offset];
-            }
+        int totalLength = 0;
+        for (byte[] array : arrays) {
+            totalLength += array.length;
         }
+        
+        byte[] newByteArray = new byte[totalLength];
+        int offset = 0;
+        
+        for (byte[] array : arrays) {
+            System.arraycopy(array, 0, newByteArray, offset, array.length);
+            offset += array.length;
+        }
+        
         return newByteArray;
     }
+    
 
-    public static IPCAdapter writeCommand(short packetId, ICommand command, IPCAdapter adapter) {
-        IPCProtocol.writeVarInt(adapter, packetId);
-        command.write(adapter);
-        return adapter;
+    public static byte[] writeCommand(short packetId, ICommand command) {
+        byte[] commandBytes = command.toBuffer();  // Convert ICommand to byte array
+        byte[] packetIdBytes = writeShort(packetId);  // Use the writeShort method
+        
+        byte[] result = new byte[packetIdBytes.length + commandBytes.length];
+        
+        // Copy packet ID bytes and command bytes into the result array
+        System.arraycopy(packetIdBytes, 0, result, 0, packetIdBytes.length);
+        System.arraycopy(commandBytes, 0, result, packetIdBytes.length, commandBytes.length);
+        
+        return result;
+    }
+    
+    public static ReadResult<Short> readCommandId(byte[] buffer, int offset) {
+        ReadResult<Short> shortResult = readShort(buffer, offset);
+        return new ReadResult<>(shortResult.getValue(), shortResult.getReadBytes());
+    }    
+
+    public static class ReadResult<T extends Object> {
+        T result;
+        int readBytes;
+
+        public ReadResult(T value, int readBytes) {
+            this.result = value;
+            this.readBytes = readBytes;
+        }
+
+        public T getValue() {
+            return result;
+        }
+
+        public int getReadBytes() {
+            return readBytes;
+        }
     }
 }
