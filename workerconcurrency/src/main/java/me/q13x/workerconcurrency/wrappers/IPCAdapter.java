@@ -1,10 +1,20 @@
 package me.q13x.workerconcurrency.wrappers;
 
-public interface IPCAdapter {
-    public byte nextByte();
-    public int getReadBufferSize();
-    public IPCAdapter flushReadBuffer();
+import me.q13x.workerconcurrency.ipc.ICommand;
 
-    public IPCAdapter destroy();
-    public IPCAdapter write(byte[] data);
+public interface IPCAdapter {
+    byte[] nextCommandDataBlock();
+    int getCommandDataReadBufferSize();
+    IPCAdapter flushCommandDataReadBuffer();
+
+    IPCAdapter destroy();
+    IPCAdapter write(byte[] data);
+
+    IPCAdapter writeCommand(ICommand command);
+
+    boolean getIsActive();
+
+    IPCAdapter addCommandDataReceivedCallback(Runnable callback);
+    IPCAdapter removeCommandDataReceivedCallback(Runnable callback);
+
 }
