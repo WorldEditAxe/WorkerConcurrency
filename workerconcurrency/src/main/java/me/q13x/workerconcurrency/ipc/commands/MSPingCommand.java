@@ -22,8 +22,8 @@ public class MSPingCommand implements ICommand {
     }
 
     @Override
-    public ICommand read(byte[] buffer) {
-        this.requestId = IPCProtocol.readVarInt(buffer).getValue();
+    public ICommand read(byte[] buffer, int offset) {
+        this.requestId = IPCProtocol.readVarInt(buffer, offset).getValue();
         return this;
     }
 
@@ -34,7 +34,7 @@ public class MSPingCommand implements ICommand {
 
     @Override
     public CommandEnum getCommandEnum() {
-        return CommandEnum.SM_PONG;
+        return CommandEnum.MS_PING;
     }
     
 }

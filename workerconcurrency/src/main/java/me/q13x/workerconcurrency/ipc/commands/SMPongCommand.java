@@ -27,8 +27,8 @@ public class SMPongCommand implements ICommand {
     }
 
     @Override
-    public ICommand read(byte[] buffer) {
-        requestId = IPCProtocol.readVarInt(buffer).getValue();
+    public ICommand read(byte[] buffer, int offset) {
+        requestId = IPCProtocol.readVarInt(buffer, offset).getValue();
         return this;
     }
 
