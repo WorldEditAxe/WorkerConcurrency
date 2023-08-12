@@ -156,6 +156,10 @@ public class IPCProtocol {
         return outputStream.toByteArray();
     }
 
+    public static ReadResult<Short> readShort(byte[] buffer) {
+        return readShort(buffer, 0);
+    }
+
     public static ReadResult<Short> readShort(byte[] buffer, int offset) {
         short result = (short) ((buffer[offset] << 8) | (buffer[offset + 1] & 0xFF));
         return new ReadResult<>(result, 2);
@@ -199,11 +203,6 @@ public class IPCProtocol {
         
         return result;
     }
-    
-    public static ReadResult<Short> readCommandId(byte[] buffer, int offset) {
-        ReadResult<Short> shortResult = readShort(buffer, offset);
-        return new ReadResult<>(shortResult.getValue(), shortResult.getReadBytes());
-    }    
 
     public static class ReadResult<T extends Object> {
         T result;
