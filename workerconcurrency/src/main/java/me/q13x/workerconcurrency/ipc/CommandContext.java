@@ -4,6 +4,7 @@ import me.q13x.workerconcurrency.RemoteWorkerManager;
 import me.q13x.workerconcurrency.RemoteWorkerSlave;
 import me.q13x.workerconcurrency.WorkerManager;
 import me.q13x.workerconcurrency.WorkerSlave;
+import me.q13x.workerconcurrency.commons.NetworkTransferableEnum;
 import me.q13x.workerconcurrency.errors.BadArgumentException;
 import me.q13x.workerconcurrency.wrappers.IPCAdapter;
 
@@ -80,7 +81,7 @@ public class CommandContext {
         }
     }
 
-    public enum EnvironmentType {
+    public enum EnvironmentType implements NetworkTransferableEnum {
         MANAGER(0),
         SLAVE(1);
 

@@ -1,81 +1,131 @@
 package me.q13x.workerconcurrency;
 
+import me.q13x.workerconcurrency.commons.Destroyable;
 import me.q13x.workerconcurrency.commons.WorkerIPCState;
-import me.q13x.workerconcurrency.errors.InvalidPacketException;
+import me.q13x.workerconcurrency.commons.async.EventBus;
+import me.q13x.workerconcurrency.commons.async.JavaPromise;
+import me.q13x.workerconcurrency.errors.PromiseFinishedException;
 import me.q13x.workerconcurrency.ipc.CommandContext;
 import me.q13x.workerconcurrency.ipc.ICommand;
 import me.q13x.workerconcurrency.ipc.IPCProtocol;
+import me.q13x.workerconcurrency.ipc.commands.init.MSIntentCommand;
 import me.q13x.workerconcurrency.ipc.commands.init.SMReadyCommand;
+import me.q13x.workerconcurrency.platform.browser.js.JSBufferUtil;
+import me.q13x.workerconcurrency.platform.browser.js.JSLogger;
+import me.q13x.workerconcurrency.platform.browser.js.workerglobals.DedicatedWorkerMessageInterface;
+import me.q13x.workerconcurrency.wrappers.CommandReader;
 import me.q13x.workerconcurrency.wrappers.IPCAdapter;
 
-public class WorkerSlave {
+import java.lang.reflect.InvocationTargetException;
+import java.util.Arrays;
+import java.util.function.Consumer;
+
+public class WorkerSlave implements Destroyable {
+    String intent;
     IPCAdapter adapter;
     RemoteWorkerManager remote;
+    Consumer<byte[]> dataCallback;
+    EventBus<ICommand> commandEventBus;
     WorkerIPCState state = WorkerIPCState.LOADING;
 
-    public WorkerSlave(IPCAdapter adapter) {
-        this.adapter = adapter;
-    }
-
-    public WorkerSlave(IPCAdapter adapter, RemoteWorkerManager remote, WorkerIPCState state) {
+    public WorkerSlave(IPCAdapter adapter, RemoteWorkerManager remote) {
+        this.intent = null;
+        this.dataCallback = null;
         this.adapter = adapter;
         this.remote = remote;
-        this.state = state;
+        this.commandEventBus = new EventBus<>();
     }
 
-    public void processCommands() {
-        processCommands(0);
-    }
-
-    public void processCommands(int limit) {
-        assertActive();
-        int packetCount = 0;
-        while (adapter.getCommandDataReadBufferSize() > 0) {
-            if (limit > 0) {
-                packetCount++;
-                if (packetCount >= limit) {
-                    break;
-                }
+    public WorkerSlave(IPCAdapter adapter, RemoteWorkerManager remote, String intent) {
+        this.intent = intent;
+        this.commandEventBus = new EventBus<>();
+        this.dataCallback = data -> {
+            try {
+                ICommand command = CommandReader.parse(data, true);
+                this.commandEventBus.dispatch(command);
+                command.getCommandEnum().getCommandCallback().accept(command, new CommandContext(CommandContext.EnvironmentType.SLAVE, adapter, remote, this));
+            } catch (Exception e) {
+                throw new RuntimeException(e);
             }
-            byte[] commandData = adapter.nextCommandDataBlock();
-            processCommand(commandData);
+        };
+        this.adapter = adapter;
+        this.remote = remote;
+        this.state = WorkerIPCState.READY;
+        adapter.getDataEventBus().addListener(dataCallback);
+    }
+
+    public WorkerSlave bindEventListeners() {
+        if (dataCallback == null) {
+            if (!DedicatedWorkerMessageInterface.alreadyInited()) {
+                DedicatedWorkerMessageInterface.init();
+            }
+            Consumer<byte[]> dataCallback = data -> {
+                try {
+                    ICommand command = CommandReader.parse(data, true);
+                    this.commandEventBus.dispatch(command);
+                    command.getCommandEnum().getCommandCallback().accept(command, new CommandContext(CommandContext.EnvironmentType.SLAVE, adapter, remote, this));
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            };
+            this.dataCallback = dataCallback;
+            adapter.getDataEventBus().addListener(dataCallback);
+            return this;
+        } else {
+            throw new IllegalStateException("You can only bind event listeners once!");
         }
     }
 
-    void processCommand(byte[] commandDataRaw) {
-        IPCProtocol.ReadResult<Short> packetId = IPCProtocol.readShort(commandDataRaw);
-        for (CommandEnum cmdEnum : CommandEnum.values()) {
-            if (cmdEnum.getCommandId() == packetId.getValue() && cmdEnum.isBoundToSlave()) {
+    public JavaPromise<WorkerSlave, Exception> markAsReady() {
+        if (dataCallback == null) {
+            throw new IllegalStateException("bindEventListeners() must be called before marking as ready!");
+        } else {
+            if (state == WorkerIPCState.LOADING) {
+                adapter.writeCommand(new SMReadyCommand());
+                state = WorkerIPCState.READY;
+                JavaPromise<WorkerSlave, Exception> promise = new JavaPromise<>();
+
                 try {
-                    cmdEnum.getCommandCallback().accept(
-                            cmdEnum.getCommandClassInstance().read(commandDataRaw, packetId.getReadBytes()),
-                            new CommandContext(
-                                    CommandContext.EnvironmentType.SLAVE,
-                                    adapter,
-                                    remote,
-                                    this
-                            )
-                    );
-                } catch (InstantiationException | IllegalAccessException e) {
+                    CommandReader.awaitCommand(adapter, CommandEnum.MS_INTENT, true)
+                            .then(_command -> {
+                                MSIntentCommand command = (MSIntentCommand) _command;
+                                this.intent = command.getIntent();
+                                try {
+                                    promise.resolve(this);
+                                } catch (PromiseFinishedException e) {
+                                    throw new RuntimeException(e);
+                                }
+                            })
+                            .catchException(err -> {
+                                throw new RuntimeException(err);
+                            });
+                } catch (PromiseFinishedException e) {
                     throw new RuntimeException(e);
                 }
-                break;
+                return promise;
+            } else {
+                throw new IllegalStateException("WorkerSlave must be in state LOADING to call WorkerSlave#init!");
             }
         }
-        throw new InvalidPacketException(String.format("Received invalid command ID (missing command enum?): %d!", packetId.getValue()));
     }
 
-    public void markAsReady() {
-        if (state == WorkerIPCState.LOADING) {
-            adapter.write(new SMReadyCommand().toBuffer());
-            state = WorkerIPCState.READY;
-        } else {
-            throw new IllegalStateException("WorkerSlave must be in state LOADING to call WorkerSlave#init!");
-        }
+    @Override
+    public boolean getActive() {
+        return state == WorkerIPCState.CLOSED;
     }
 
     public void destroy() {
         this.state = WorkerIPCState.CLOSED;
+        this.adapter.getDataEventBus().removeListener(dataCallback);
+        this.adapter.destroy();
+    }
+
+    public EventBus<ICommand> getCommandBus() {
+        return commandEventBus;
+    }
+
+    public String getIntent() {
+        return intent;
     }
 
     public WorkerIPCState getState() {

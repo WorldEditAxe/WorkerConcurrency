@@ -161,13 +161,13 @@ public class IPCProtocol {
     }
 
     public static ReadResult<Short> readShort(byte[] buffer, int offset) {
-        short result = (short) ((buffer[offset] << 8) | (buffer[offset + 1] & 0xFF));
+        short result = (short) (((buffer[offset] & 0xFF) << 8) | (buffer[offset + 1] & 0xFF));
         return new ReadResult<>(result, 2);
     }
-    
+
     public static byte[] writeShort(short value) {
         byte[] bytes = new byte[2];
-        bytes[0] = (byte) (value >> 8);
+        bytes[0] = (byte) ((value >> 8) & 0xFF);
         bytes[1] = (byte) (value & 0xFF);
         return bytes;
     }

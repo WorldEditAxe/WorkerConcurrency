@@ -1,16 +1,12 @@
-package me.q13x.workerconcurrency.ipc.commands.init;
+package me.q13x.workerconcurrency.ipc.commands;
 
 import me.q13x.workerconcurrency.CommandEnum;
 import me.q13x.workerconcurrency.ipc.ICommand;
 
-public class SMReadyCommand implements ICommand {
-    public SMReadyCommand() {
-
-    }
-
+public class MSCleanupCommand implements ICommand {
     @Override
     public CommandEnum getCommandEnum() {
-        return CommandEnum.SM_READY;
+        return CommandEnum.MS_CLEANUP;
     }
 
     @Override

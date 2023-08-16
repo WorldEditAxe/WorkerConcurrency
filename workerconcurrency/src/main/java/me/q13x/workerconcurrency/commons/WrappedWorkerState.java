@@ -1,13 +1,13 @@
 package me.q13x.workerconcurrency.commons;
 
-public enum WorkerIPCState implements NetworkTransferableEnum {
-    LOADING(0),
+public enum WrappedWorkerState implements NetworkTransferableEnum {
+    STARTING_UP(0),
     READY(1),
-    CLOSED(2);
+    STOPPED(2);
 
     int networkValue;
 
-    WorkerIPCState(int networkValue) {
+    WrappedWorkerState(int networkValue) {
         this.networkValue = networkValue;
     }
 

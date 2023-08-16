@@ -7,6 +7,9 @@ public class JSLogger {
     @JSBody(params = { "message" }, script = "console.log(message);")
     public native static void info(String message);
 
+    @JSBody(params = { "message" }, script = "console.error(message);")
+    public native static void error(String message);
+
     @JSBody(params = { "message" }, script = "console.log(message);")
     public native static void infoNative(JSObject message);
 }
